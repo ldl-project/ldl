@@ -12,13 +12,13 @@
 ;;;;     (asdf:load-system :ldl)
 ;;;;
 ;;;;   Force a full rebuild after pulling changes or editing files outside
-;;;;   the running image (see docs/user_manual.md):
+;;;;   the running image (see docs/04-reference.md §26):
 ;;;;
 ;;;;     (asdf:load-system :ldl :force t)
 
 (defsystem "ldl"
   :description "Lisp Declarative Linux -- declarative Linux home environment management"
-  :version "4.3.0"
+  :version "1.0.1"
   :depends-on ("asdf" "uiop")
   :serial t
   :components
@@ -64,7 +64,8 @@
        (:file "locale")
        (:file "firewall")
        (:file "cron")
-       (:file "command")))
+       (:file "command")
+       (:file "stow")))
      (:file "pipeline")
      (:file "privilege")
      (:file "dsl")

@@ -222,3 +222,12 @@ since a user reached for the escape hatch deliberately."
   (let ((action (list* :action :command :target target
                         (append opts (list :priority :user :source "user:command")))))
     `(push ',action *current-home-actions*)))
+
+(defmacro stow (target &rest opts)
+  "(stow \"fish\") -> :stow action. Mirrors files/fish/** onto :to (default
+~), folding whole directories when nothing exists yet and merging
+file-by-file when the target already exists -- GNU-Stow style, with no
+dependency on the stow binary."
+  (let ((action (list* :action :stow :target target
+                        (append opts (list :priority :user :source "user:stow")))))
+    `(push ',action *current-home-actions*)))
