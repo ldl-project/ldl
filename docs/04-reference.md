@@ -614,12 +614,12 @@ provider, or via `direct-action`):
 (:action :stow         :target "fish" :to "~")
 ```
 
-Twelve more built-in types — `:user`, `:group`, `:authorized-key`,
+Thirteen more built-in types — `:user`, `:group`, `:authorized-key`,
 `:permissions`, `:mount`, `:sysctl`, `:kernel-module`, `:hostname`,
-`:locale`, `:firewall`, `:cron`, `:command` — cover system administration
-beyond a single home directory. They have their own convenience forms too
-(`user`, `group`, `authorized-key`, ...); see §21 for every one of
-them with example variations.
+`:locale`, `:firewall`, `:cron`, `:command`, `:clone` — cover system
+administration and other tasks beyond a single home directory. They have
+their own convenience forms too (`user`, `group`, `authorized-key`, ...);
+see §21 for every one of them with example variations.
 
 **`:service`, specifically** — enables/starts a systemd unit only if it
 isn't already in the desired state:
@@ -809,8 +809,8 @@ every time. Give me exactly one of `:creates`, `:unless`, or `:only-if`:
 
 ```lisp
 ;; run only if this path doesn't exist yet
-(command "clone dotfiles" :run "git clone https://example.com/dotfiles ~/.dotfiles"
-         :creates "~/.dotfiles")
+(command "install oh-my-zsh" :run "sh install-oh-my-zsh.sh --unattended"
+         :creates "~/.oh-my-zsh")
 
 ;; run only if this shell command currently fails (exits non-zero)
 (command "install rustup" :run "curl https://sh.rustup.rs -sSf | sh -s -- -y"
@@ -825,6 +825,68 @@ If you give me none of the three, I can't reason about whether the
 command is needed — I'll say so honestly (`:would-change` under `plan`,
 and I'll run it on every `apply`) rather than pretend I checked something
 I didn't. That's a signal to add a check, not a bug to work around.
+
+(Cloning a git repo specifically has its own dedicated type, `:clone`,
+just below — prefer it over `command` + `git clone` when that's all
+you need, since it actually checks the repo's real state on a repeat
+run instead of just a marker file's presence.)
+
+Give `:sudo t` when `:run` (and `:remove-run`, if present) itself needs
+root:
+
+```lisp
+(command "set timezone" :run "timedatectl set-timezone America/New_York"
+         :unless "timedatectl show --property=Timezone | grep -q America/New_York")
+```
+
+```lisp
+(command "write sysctl override" :run "echo 1 > /proc/sys/net/ipv4/ip_forward"
+         :only-if "test $(cat /proc/sys/net/ipv4/ip_forward) != 1"
+         :sudo t)
+```
+
+Every other built-in action type escalates on its own, per-command, only
+if a plain attempt actually fails — `:command` is the one exception,
+because I can't safely guess whether an arbitrary shell string needs
+root, and re-running it after a failed plain attempt could leave things
+half-done. So for `:command` specifically, `:sudo t` is how you tell me
+up front; I still skip `sudo` itself if the whole process already happens
+to be running as root (see §21's general escalation note and
+`docs/03-how-i-am-built.md`).
+
+**`clone`** — ensures a git repository is checked out at `:target`,
+requires the `git` binary. Unlike `command` + a `:creates` marker, a
+repeat run actually looks at the repo's real state: it checks the
+checked-out repo's `origin` remote against the declared `:url`, not just
+whether the directory happens to exist:
+
+```lisp
+(clone "~/.dotfiles" :url "https://example.com/dotfiles.git")
+
+(clone "~/.cache/ldl/krohnkite" :url "https://github.com/esjeon/krohnkite.git"
+       :branch "main" :depth 1)
+```
+
+- Target missing → clones it.
+- Target exists, `origin` matches `:url` → `:unchanged` — I never re-clone
+  or re-fetch on every run.
+- Target exists but isn't a git repository at all → a clear
+  `execution-failure`, refusing to clone over whatever's actually there,
+  the same conflict-detection philosophy as `:stow`.
+- Target exists, is a git repo, but `origin` doesn't match the declared
+  `:url` → also a clear `execution-failure` — a real contradiction on
+  disk, not something I'll silently re-point.
+- `:branch` given, but a *different* branch is currently checked out → I
+  only warn about it; I never auto-switch branches, since that could
+  discard a dirty working tree.
+- `:depth` only affects the initial clone — I don't re-verify it
+  afterward (git doesn't cheaply expose "was this a shallow clone of
+  depth N" for me to check against).
+
+I never escalate for `:clone` itself (you're cloning into your own
+directories); `:remove` deletes the whole checked-out tree, falling back
+to a privileged `rm -rf` only if the plain delete fails, same as every
+other filesystem-removing built-in.
 
 ### 22 Templates
 
