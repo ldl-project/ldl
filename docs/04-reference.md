@@ -414,18 +414,56 @@ vocabulary — no custom conditional macros exist):
 
 ```lisp
 (and (fact :work-p) (fact :laptop-p))
-(member (fact :gpu) '(:nvidia :amd))
+(member :nvidia (fact :gpu-vendor))
 (eq (fact :display-server) :wayland)
 (not (fact :laptop-p))
 ```
 
+**Every built-in fact**, all probed from `/proc`/`/sys` (or a read-only
+command like `uname`) — no sudo, no distro-specific tooling required:
+
+| Fact | Values | How it's probed |
+|---|---|---|
+| `:os` | e.g. `:fedora`, `:arch`, `:debian`, `:ubuntu` | distro-specific release files first, `/etc/os-release`'s `ID=` as a generic fallback |
+| `:hostname` | a string | `uiop:hostname` |
+| `:laptop-p` | `t`/`nil` | any `BAT*` under `/sys/class/power_supply/` |
+| `:display-server` | `:wayland`, `:x11`, `nil` | `$WAYLAND_DISPLAY`/`$DISPLAY` |
+| `:gpu-vendor` | a **list** of `:nvidia`/`:amd`/`:intel` (e.g. `(:intel :nvidia)` on hybrid graphics) | PCI vendor ID under every `/sys/class/drm/card*/device/vendor` |
+| `:vm-p` | `t`/`nil` | DMI `sys_vendor`/`product_name` against known hypervisor strings, falling back to `/proc/cpuinfo`'s `hypervisor` flag on x86 |
+| `:cpu-arch` | e.g. `:x86-64`, `:aarch64`, `:armv7l` | `uname -m` |
+| `:package-manager` | `:pacman`, `:dnf`, `:yum`, `:apt`, `:zypper`, `:apk`, `:xbps`, `:portage`, `:unknown` | which of those binaries is actually on `PATH`, checked in that order — not a mapping from `:os`, so a distro `:os` doesn't recognize by name still resolves correctly |
+| `:wifi-p` | `t`/`nil` | any `/sys/class/net/*/wireless/` |
+| `:bluetooth-p` | `t`/`nil` | any adapter under `/sys/class/bluetooth/` |
+| `:touchpad-p` | `t`/`nil` | a `Touchpad`-named entry in `/proc/bus/input/devices` |
+| `:ram-gb` | an integer | `MemTotal` in `/proc/meminfo`, rounded |
+| `:cpu-cores` | an integer | `processor` line count in `/proc/cpuinfo` (logical CPUs, same as `nproc`) |
+| `:uefi-p` | `t`/`nil` | `/sys/firmware/efi/` exists |
+| `:init-system` | `:systemd`, `:openrc`, `:runit`, `:sysvinit`, `:unknown` | `/run/systemd/system/` unambiguously; a couple of marker paths for the rest (best-effort) |
+| `:root-disk-type` | `:nvme`, `:ssd`, `:hdd`, `:unknown` | resolves `/`'s device from `/proc/mounts` through any LVM/LUKS/mdraid stacking, then `/sys/block/*/queue/rotational` |
+| `:fingerprint-p` | `t`/`nil` | `"fingerprint"` in any `/sys/bus/usb/devices/*/product` (heuristic — won't catch a non-USB reader) |
+| `:container-p` | `t`/`nil` | `/.dockerenv`, `/run/.containerenv`, `$container`, or `docker`/`lxc`/`kubepods` in `/proc/1/cgroup` |
+| `:sys-vendor` | a string, or `:unknown` | `/sys/class/dmi/id/sys_vendor` |
+| `:product-name` | a string, or `:unknown` | `/sys/class/dmi/id/product_name` |
+
+Two facts that look like they belong on this list are deliberately
+**not** built in: `:secure-boot-p` and `:product-uuid`. Both would need
+to read a `/sys` attribute (the EFI `SecureBoot` efivar; DMI's
+`product_uuid`) that's root-only by default on every mainstream distro —
+the kernel restricts exactly those two DMI/efivar attributes on purpose,
+since they're closer to a hardware serial number than a descriptive
+string. I never ask for sudo just to read a fact, so these aren't
+probed. If you genuinely need one, you can still register it yourself
+with `:sudo`-appropriate handling in your own action, the same way any
+custom fact or action works — LDL just won't do it silently as a
+built-in.
+
 **Registering a new fact prober** (typically in `providers/*.lisp`):
 
 ```lisp
-(register-fact-prober :gpu
+(register-fact-prober :codename
   (lambda ()
     (cond
-      ((probe-file "/proc/driver/nvidia/version") :nvidia)
+      ((probe-file "/etc/fedora-release") :fedora-codename-here)
       (t :unknown))))
 ```
 

@@ -15,11 +15,12 @@
 (in-package :ldl.core)
 
 (defun distro-package-manager ()
-  (case (fact :os)
-    (:fedora :dnf) (:rhel :dnf) (:centos :dnf)
-    (:arch :pacman) (:manjaro :pacman)
-    (:debian :apt) (:ubuntu :apt)
-    (t :unknown)))
+  "Which system package manager to drive :via :system through. Delegates
+to the :package-manager fact -- detected from the actual binary present
+on PATH (see src/facts.lisp), rather than mapping from :os, so a distro
+:os doesn't recognize by name still resolves correctly as long as it
+ships one of the package managers below."
+  (fact :package-manager))
 
 (defun package-installed-p (via name)
   (case via
@@ -27,7 +28,7 @@
     (:npm (zerop (nth-value 2 (uiop:run-program (list "npm" "list" "-g" name) :ignore-error-status t))))
     (t
      (case (distro-package-manager)
-       (:dnf (zerop (nth-value 2 (uiop:run-program (list "rpm" "-q" name) :ignore-error-status t))))
+       ((:dnf :yum :zypper) (zerop (nth-value 2 (uiop:run-program (list "rpm" "-q" name) :ignore-error-status t))))
        (:pacman (zerop (nth-value 2 (uiop:run-program (list "pacman" "-Q" name) :ignore-error-status t))))
        (:apt (zerop (nth-value 2 (uiop:run-program (list "dpkg" "-s" name) :ignore-error-status t))))
        (t nil)))))
@@ -39,6 +40,8 @@
     (t
      (case (distro-package-manager)
        (:dnf (list "dnf" "install" "-y" name))
+       (:yum (list "yum" "install" "-y" name))
+       (:zypper (list "zypper" "--non-interactive" "install" name))
        (:pacman (list "pacman" "-S" "--noconfirm" name))
        (:apt (list "apt-get" "install" "-y" name))
        (t (error 'execution-failure :action-type :package :target name
@@ -51,6 +54,8 @@
     (t
      (case (distro-package-manager)
        (:dnf (list "dnf" "remove" "-y" name))
+       (:yum (list "yum" "remove" "-y" name))
+       (:zypper (list "zypper" "--non-interactive" "remove" name))
        (:pacman (list "pacman" "-R" "--noconfirm" name))
        (:apt (list "apt-get" "remove" "-y" name))
        (t (error 'execution-failure :action-type :package :target name
@@ -92,13 +97,13 @@ than asking for it up front."
       (cond
         ((string= remote "flathub")
          (flatpak-run action (list "flatpak" "remote-add" "--if-not-exists" (flatpak-scope-flag action)
-                                    "flathub" (or url "https://flathub.org/repo/flathub.flatpakrepo"))))
+                                   "flathub" (or url "https://flathub.org/repo/flathub.flatpakrepo"))))
         (url
          (flatpak-run action (list "flatpak" "remote-add" "--if-not-exists" (flatpak-scope-flag action) remote url)))
         (t
          (error 'execution-failure :action-type :package :target remote
                 :underlying (format nil "Flatpak remote ~s is not configured, and no :remote-url was given to add it."
-                                     remote)))))))
+                                    remote)))))))
 
 (defun flatpak-installed-p (name action)
   (shell-ok-p (format nil "flatpak list --app --columns=application ~a 2>/dev/null | grep -qx ~a"
@@ -140,4 +145,4 @@ than asking for it up front."
              (report :removed :target name)))))))
 
 (register-action-type :package #'execute-package
-  :description "Install a package via the system package manager, pip, npm, or Flatpak")
+                      :description "Install a package via the system package manager, pip, npm, or Flatpak")
