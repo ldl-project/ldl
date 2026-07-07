@@ -114,6 +114,7 @@
    #:firewall
    #:cron
    #:command
+   #:clone
    #:stow
    #:*current-home-actions*
    #:*current-home-name*

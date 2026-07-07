@@ -84,19 +84,19 @@ TARGET, and OPTS are macro-time literal data; only TARGET-KEY varies by form
 (defmacro file (target &rest opts)
   "(file \"~/.gitconfig\" :from \"gitconfig\" ...) -> :copy-file action."
   (let ((action (list* :action :copy-file :target target :to target
-                        (append opts (list :priority :user :source "user:file")))))
+                       (append opts (list :priority :user :source "user:file")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro directory (target &rest opts)
   "(directory \"~/.ssh\" :mode #o700) -> :ensure-dir action."
   (let ((action (list* :action :ensure-dir :target target
-                        (append opts (list :priority :user :source "user:directory")))))
+                       (append opts (list :priority :user :source "user:directory")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro symlink (target &rest opts)
   "(symlink \"~/.emacs.d\" :to \"~/.config/emacs\") -> :symlink action."
   (let ((action (list* :action :symlink :target target
-                        (append opts (list :priority :user :source "user:symlink")))))
+                       (append opts (list :priority :user :source "user:symlink")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro package (target &rest opts)
@@ -104,34 +104,34 @@ TARGET, and OPTS are macro-time literal data; only TARGET-KEY varies by form
   (let* ((via (or (getf opts :via) :system))
          (opts (list* :via via opts)))
     (let ((action (list* :action :package :target target
-                          (append opts (list :priority :user :source "user:package")))))
+                         (append opts (list :priority :user :source "user:package")))))
       `(push ',action *current-home-actions*))))
 
 (defmacro secret (target &rest opts)
   "(secret \"~/.ssh/id_ed25519\" :from :pass :path \"ssh/id_ed25519\") -> :secret action."
   (let ((action (list* :action :secret :target target
-                        (append opts (list :priority :user :source "user:secret")))))
+                       (append opts (list :priority :user :source "user:secret")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro env-var (target &rest opts)
   "(env-var \"EDITOR\" :value \"emacs\" :file \"~/.profile\") -> :env-var action."
   (let ((action (list* :action :env-var :target target
-                        (append opts (list :priority :user :source "user:env-var")))))
+                       (append opts (list :priority :user :source "user:env-var")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro config-lines (target &rest opts)
   (let ((action (list* :action :config-lines :target target
-                        (append opts (list :priority :user :source "user:config-lines")))))
+                       (append opts (list :priority :user :source "user:config-lines")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro config-ini (target &rest opts)
   (let ((action (list* :action :config-ini :target target
-                        (append opts (list :priority :user :source "user:config-ini")))))
+                       (append opts (list :priority :user :source "user:config-ini")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro config-env (target &rest opts)
   (let ((action (list* :action :config-env :target target
-                        (append opts (list :priority :user :source "user:config-env")))))
+                       (append opts (list :priority :user :source "user:config-env")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro direct-action (&rest args)
@@ -143,8 +143,8 @@ since a user reached for the escape hatch deliberately."
          (action-forms (if reason-pos (nthcdr (+ reason-pos 2) args) args)))
     `(dolist (a ',action-forms)
        (push (append (copy-list a)
-                      (list :priority :user :force t
-                            :source ,(format nil "direct-action: ~a" reason)))
+                     (list :priority :user :force t
+                           :source ,(format nil "direct-action: ~a" reason)))
              *current-home-actions*))))
 
 ;;; --- System administration convenience forms --------------------------
@@ -154,73 +154,81 @@ since a user reached for the escape hatch deliberately."
 (defmacro user (target &rest opts)
   "(user \"deploy\" :shell \"/bin/bash\" :create-home t) -> :user action."
   (let ((action (list* :action :user :target target
-                        (append opts (list :priority :user :source "user:user")))))
+                       (append opts (list :priority :user :source "user:user")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro group (target &rest opts)
   "(group \"docker\" :gid 999) -> :group action."
   (let ((action (list* :action :group :target target
-                        (append opts (list :priority :user :source "user:group")))))
+                       (append opts (list :priority :user :source "user:group")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro authorized-key (target &rest opts)
   "(authorized-key \"deploy\" :key \"ssh-ed25519 AAAA...\") -> :authorized-key action."
   (let ((action (list* :action :authorized-key :target target
-                        (append opts (list :priority :user :source "user:authorized-key")))))
+                       (append opts (list :priority :user :source "user:authorized-key")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro permissions (target &rest opts)
   "(permissions \"/var/lib/mysql\" :owner \"mysql\" :group \"mysql\" :mode #o750) -> :permissions action."
   (let ((action (list* :action :permissions :target target
-                        (append opts (list :priority :user :source "user:permissions")))))
+                       (append opts (list :priority :user :source "user:permissions")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro mount (target &rest opts)
   "(mount \"/mnt/data\" :device \"/dev/sdb1\" :fstype \"ext4\") -> :mount action."
   (let ((action (list* :action :mount :target target
-                        (append opts (list :priority :user :source "user:mount")))))
+                       (append opts (list :priority :user :source "user:mount")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro sysctl (target &rest opts)
   "(sysctl \"net.ipv4.ip_forward\" :value 1) -> :sysctl action."
   (let ((action (list* :action :sysctl :target target
-                        (append opts (list :priority :user :source "user:sysctl")))))
+                       (append opts (list :priority :user :source "user:sysctl")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro kernel-module (target &rest opts)
   "(kernel-module \"nfs\" :state :loaded) / (kernel-module \"usb-storage\" :state :blacklisted)."
   (let ((action (list* :action :kernel-module :target target
-                        (append opts (list :priority :user :source "user:kernel-module")))))
+                       (append opts (list :priority :user :source "user:kernel-module")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro hostname (target &rest opts)
   "(hostname \"myhost.example.com\") -> :hostname action."
   (let ((action (list* :action :hostname :target target
-                        (append opts (list :priority :user :source "user:hostname")))))
+                       (append opts (list :priority :user :source "user:hostname")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro locale (target &rest opts)
   "(locale \"en_US.UTF-8\" :timezone \"America/New_York\") -> :locale action."
   (let ((action (list* :action :locale :target target
-                        (append opts (list :priority :user :source "user:locale")))))
+                       (append opts (list :priority :user :source "user:locale")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro firewall (target &rest opts)
   "(firewall 22 :protocol \"tcp\" :allow t) -> :firewall action."
   (let ((action (list* :action :firewall :target target
-                        (append opts (list :priority :user :source "user:firewall")))))
+                       (append opts (list :priority :user :source "user:firewall")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro cron (target &rest opts)
   "(cron \"nightly-backup\" :schedule \"0 2 * * *\" :command \"/usr/local/bin/backup.sh\") -> :cron action."
   (let ((action (list* :action :cron :target target
-                        (append opts (list :priority :user :source "user:cron")))))
+                       (append opts (list :priority :user :source "user:cron")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro command (target &rest opts)
   "(command \"clone dotfiles repo\" :run \"git clone ...\" :creates \"~/.dotfiles\") -> :command action."
   (let ((action (list* :action :command :target target
-                        (append opts (list :priority :user :source "user:command")))))
+                       (append opts (list :priority :user :source "user:command")))))
+    `(push ',action *current-home-actions*)))
+
+(defmacro clone (target &rest opts)
+  "(clone \"~/.dotfiles\" :url \"https://example.com/dotfiles.git\" :branch \"main\" :depth 1)
+-> :clone action. Ensures a git repo is checked out at TARGET; a repeat
+run checks the actual origin remote, not just whether TARGET exists."
+  (let ((action (list* :action :clone :target target
+                       (append opts (list :priority :user :source "user:clone")))))
     `(push ',action *current-home-actions*)))
 
 (defmacro stow (target &rest opts)
@@ -229,5 +237,5 @@ since a user reached for the escape hatch deliberately."
 file-by-file when the target already exists -- GNU-Stow style, with no
 dependency on the stow binary."
   (let ((action (list* :action :stow :target target
-                        (append opts (list :priority :user :source "user:stow")))))
+                       (append opts (list :priority :user :source "user:stow")))))
     `(push ',action *current-home-actions*)))

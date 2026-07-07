@@ -17,56 +17,57 @@
 ;;;;     (asdf:load-system :ldl :force t)
 
 (defsystem "ldl"
-  :description "Lisp Declarative Linux -- declarative Linux home environment management"
-  :version "1.0.1"
-  :depends-on ("asdf" "uiop")
-  :serial t
-  :components
-  ((:module "src"
+    :description "Lisp Declarative Linux -- declarative Linux home environment management"
+    :version "1.1.0"
+    :depends-on ("asdf" "uiop")
     :serial t
     :components
-    ((:file "package")
-     (:file "conditions")
-     (:file "log")
-     (:file "discovery")
-     (:file "facts")
-     (:file "profiles")
-     (:file "catalogs")
-     (:file "features")
-     (:file "providers")
-     (:file "actions")
-     (:file "secrets")
-     (:file "templates")
-     (:module "action-types"
-      :serial t
-      :components
-      ((:file "package")
-       (:file "helpers")
-       (:file "copy-file")
-       (:file "ensure-dir")
-       (:file "symlink")
-       (:file "service")
-       (:file "timer")
-       (:file "env-var")
-       (:file "config-lines")
-       (:file "config-ini")
-       (:file "config-env")
-       (:file "package-action")
-       (:file "secret")
-       (:file "user")
-       (:file "group")
-       (:file "authorized-key")
-       (:file "permissions")
-       (:file "mount")
-       (:file "sysctl")
-       (:file "kernel-module")
-       (:file "hostname")
-       (:file "locale")
-       (:file "firewall")
-       (:file "cron")
-       (:file "command")
-       (:file "stow")))
-     (:file "pipeline")
-     (:file "privilege")
-     (:file "dsl")
-     (:file "cli")))))
+    ((:module "src"
+              :serial t
+              :components
+              ((:file "package")
+               (:file "conditions")
+               (:file "log")
+               (:file "discovery")
+               (:file "facts")
+               (:file "profiles")
+               (:file "catalogs")
+               (:file "features")
+               (:file "providers")
+               (:file "actions")
+               (:file "secrets")
+               (:file "templates")
+               (:module "action-types"
+                        :serial t
+                        :components
+                        ((:file "package")
+                         (:file "helpers")
+                         (:file "copy-file")
+                         (:file "ensure-dir")
+                         (:file "symlink")
+                         (:file "service")
+                         (:file "timer")
+                         (:file "env-var")
+                         (:file "config-lines")
+                         (:file "config-ini")
+                         (:file "config-env")
+                         (:file "package-action")
+                         (:file "secret")
+                         (:file "user")
+                         (:file "group")
+                         (:file "authorized-key")
+                         (:file "permissions")
+                         (:file "mount")
+                         (:file "sysctl")
+                         (:file "kernel-module")
+                         (:file "hostname")
+                         (:file "locale")
+                         (:file "firewall")
+                         (:file "cron")
+                         (:file "command")
+                         (:file "clone")
+                         (:file "stow")))
+               (:file "pipeline")
+               (:file "privilege")
+               (:file "dsl")
+               (:file "cli")))))

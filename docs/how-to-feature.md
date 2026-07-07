@@ -310,15 +310,17 @@ System-administration actions:
 | `:locale` | `:target` (locale name), `:timezone` | generates the locale if needed, sets it default, optionally sets timezone |
 | `:firewall` | `:target` (port), `:protocol` (default `"tcp"`), `:allow` | auto-detects `firewalld` vs `ufw`; identity includes protocol, so tcp/udp on the same port are independent |
 | `:cron` | `:target` (job name), `:schedule`, `:command`, `:user` (default `"root"`) | writes `/etc/cron.d/<target>` |
-| `:command` | `:target` (a label), `:run`, `:creates`, `:unless`, `:only-if`, `:remove-run` | the escape hatch — give exactly one of `:creates`/`:unless`/`:only-if` so LDL can actually check whether it's needed; with none given it honestly reports "always needs to run" rather than guessing |
+| `:command` | `:target` (a label), `:run`, `:creates`, `:unless`, `:only-if`, `:remove-run`, `:sudo` | the escape hatch — give exactly one of `:creates`/`:unless`/`:only-if` so LDL can actually check whether it's needed; with none given it honestly reports "always needs to run" rather than guessing. Give `:sudo t` if `:run`/`:remove-run` itself needs root — unlike every other built-in type, `:command` can't safely detect that on its own and try-plain-then-escalate, since re-running an arbitrary shell string after a failed plain attempt could leave things half-done |
+| `:clone` | `:target` (checkout path), `:url`, `:branch`, `:depth` | ensures a git checkout at `:target`; a repeat run checks the real `origin` remote, not just whether `:target` exists — prefer this over `:command` + `git clone` whenever a plain git checkout is all you need |
 | `:stow` | `:target` (package name under `files/`), `:to` (target root, default `~`), `:from` (source dir name if different from `:target`) | GNU-Stow-style symlink management, no dependency on the `stow` binary — folds a whole directory into one symlink when the target is empty, merges file-by-file (and unfolds a previous fold from a different package) when it isn't |
 
 If none of these covers what you need, `:command` with the right
 idempotency check (`:creates` a marker file/dir, `:unless`/`:only-if` a
-shell probe) covers nearly everything else. Only propose a brand-new
-custom action type (via `register-action-type`, §9) if the thing you're
-automating genuinely needs its own multi-step check/apply/remove logic
-that `:command` can't express in one shell idempotency check — e.g. it
+shell probe) covers nearly everything else — except plain git checkouts,
+which `:clone` above already covers more precisely. Only propose a
+brand-new custom action type (via `register-action-type`, §9) if the
+thing you're automating genuinely needs its own multi-step check/apply/
+remove logic that neither `:command` nor `:clone` can express — e.g. it
 needed several distinct idempotent sub-steps with their own dependency
 ordering, which is exactly why Krohnkite (§8) uses three separate
 `:command` actions chained by `:depends-on` rather than either one
@@ -332,11 +334,14 @@ This is the actual Krohnkite (a KWin tiling script) feature, included
 here as a template for structure, not for you to copy verbatim unless
 you're specifically asked for Krohnkite. Notice: the catalog uses
 `register-catalog`; the required feature (`:kde-plasma`) gets a minimal,
-clearly-removable stub; each install step is its own `:command` action
-with a real idempotency check and an explicit `:depends-on` on the
-previous step's identity; and the quoting rule from §5 is followed
-exactly (`:depends-on '((:package :system . :git))`, quoted, inside a
-`(list ...)` call).
+clearly-removable stub; the source is fetched via `:clone` rather than a
+hand-rolled `:command` + `git clone`, so a repeat run actually checks the
+real `origin` remote instead of just a marker directory; the install
+step is still its own `:command` action with a real idempotency check and
+an explicit `:depends-on` on the clone step's identity; and the quoting
+rule from §5 is followed exactly (`:depends-on '((:package :system . :git))`
+is a literal, quoted; `(cons :clone clone-dir)` is built at runtime
+because `clone-dir` is a variable, not a literal).
 
 ```lisp
 (in-package :ldl.core)
@@ -367,16 +372,15 @@ exactly (`:depends-on '((:package :system . :git))`, quoted, inside a
            (script-dir "~/.local/share/kwin/scripts/krohnkite"))
       (list
         '(:action :package :target :git :via :system)
-        (list :action :command
-              :target "krohnkite: clone source"
-              :run (format nil "git clone --depth 1 ~a ~a" repo clone-dir)
-              :creates clone-dir
+        (list :action :clone
+              :target clone-dir
+              :url repo
               :depends-on '((:package :system . :git)))
         (list :action :command
               :target "krohnkite: install kwin script"
               :run (format nil "kpackagetool6 --type KWin/Script -i ~a" clone-dir)
               :creates script-dir
-              :depends-on '((:command . "krohnkite: clone source")))))))
+              :depends-on (list (cons :clone clone-dir)))))))
 ```
 
 ---
@@ -397,7 +401,7 @@ ordering. Get these exactly right:
 | `:config-lines` | `(:config-lines (content) <target>)` | rarely referenced directly by `:depends-on`; prefer depending on something else |
 | `:authorized-key` | `(:authorized-key <target> <key>)` | rarely referenced directly |
 | `:firewall` | `(:firewall <protocol> . <target>)` | `(:firewall "tcp" . 80)` |
-| everything else | `(<type> . <target>)` | `(:command . "krohnkite: clone source")`, `(:ensure-dir . "~/.ssh")`, `(:service . :docker)` |
+| everything else | `(<type> . <target>)` | `(:clone . "~/.cache/ldl/krohnkite")`, `(:ensure-dir . "~/.ssh")`, `(:service . :docker)` |
 
 Note the dot before the last element for the two-element forms — these
 are **dotted pairs**, not proper lists. `(:ensure-dir . "~/.ssh")` is
