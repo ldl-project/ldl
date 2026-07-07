@@ -83,7 +83,7 @@
 
    ;; privilege
    #:privileged-p
-   #:preflight-check
+   #:preflight-notice
 
    ;; discovery
    #:discover-project

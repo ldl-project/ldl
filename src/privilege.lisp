@@ -1,14 +1,16 @@
 ;;;; src/privilege.lisp
 ;;;;
-;;;; Privilege detection and the pre-apply preflight check: aborts an :apply
-;;;; run up front, before any action executes, if the plan contains a
-;;;; :package install that will actually need root and the process doesn't
-;;;; have it. A Flatpak install explicitly scoped :user is deliberately
-;;;; excluded from this check, since it never escalates privileges either.
+;;;; Privilege detection, and an informational pre-apply notice (not a
+;;;; gate) about how many actions in the plan will need root. ldl never
+;;;; requires the whole process to run as root: every action that
+;;;; genuinely needs privilege escalates on its own, per-command, via
+;;;; sudo (see the escalate-on-demand helpers in
+;;;; action-types/helpers.lisp) -- so there is nothing to abort here
+;;;; before :apply runs, only something worth telling you about up front.
 ;;;;
 ;;;; Usage:
-;;;;     (privileged-p)                     ; => T if effectively root
-;;;;     (preflight-check ordered-actions)  ; signals INSUFFICIENT-PRIVILEGES if needed
+;;;;     (privileged-p)                 ; => T if the process itself is root
+;;;;     (preflight-notice ordered-actions) ; logs a one-line notice, never errors
 
 (in-package :ldl.core)
 
@@ -19,21 +21,26 @@
                  (uiop:run-program (list "id" "-u") :output '(:string :stripped t))))))
 
 (defun privileged-p ()
-  "T if the current process can install packages (effectively root)."
+  "T if the current process itself is already root. Most runs of ldl
+should answer NIL here -- individual actions escalate on their own as
+needed, rather than requiring the whole process to run as root."
   (eql (current-uid) 0))
 
 (defun action-needs-privilege-p (action)
-  "T if ACTION is a :package install that will actually need root. Every
+  "T if ACTION is a :package install that will typically need root. Every
 :package via is privileged EXCEPT a Flatpak install explicitly scoped
-:user -- that one deliberately never escalates (see package-action.lisp),
-so it shouldn't force a `sudo ldl apply` requirement on its own."
+:user, which deliberately never escalates (see package-action.lisp). This
+is used only for the informational notice below, not to gate anything."
   (and (eq (action-type action) :package)
        (not (and (eq (getf action :via) :flatpak) (eq (getf action :scope :system) :user)))))
 
-(defun preflight-check (ordered-actions)
-  "Per the spec: before :apply executes any action, abort immediately (with
-no actions executed) if the plan contains any privileged :package action
-and the process lacks privileges to install packages."
-  (let ((pkg-count (count-if #'action-needs-privilege-p ordered-actions)))
-    (when (and (> pkg-count 0) (not (privileged-p)))
-      (error 'insufficient-privileges :count pkg-count))))
+(defun preflight-notice (ordered-actions)
+  "Log a one-line, purely informational notice if the plan contains
+actions that will likely prompt for a sudo password when :apply actually
+runs. Never aborts and never requires the whole ldl process to already
+be root -- sudo's own credential cache (about 15 minutes by default) means
+a plan with several such actions normally only prompts once."
+  (let ((count (count-if #'action-needs-privilege-p ordered-actions)))
+    (when (and (> count 0) (not (privileged-p)))
+      (ldl.log:info "~d action(s) in this plan will use sudo for just that step; you may be prompted for your password."
+                     count))))

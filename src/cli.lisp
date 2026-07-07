@@ -320,7 +320,7 @@ or a clear diagnosis of why it can't resolve -- used by `ldl doctor`."
       (format t "~%Package installs requiring privilege: ~d~a~%"
               privileged-count
               (if (and (> privileged-count 0) (not (privileged-p)))
-                  " -- run `sudo ldl apply` to actually apply this plan"
+                  " -- ldl apply will use sudo for just those steps; you may be prompted"
                   "")))))
 
 (defun cmd-init (opts)
@@ -366,7 +366,7 @@ or a clear diagnosis of why it can't resolve -- used by `ldl doctor`."
    (list :name "apply" :fn #'cmd-apply
          :summary "Execute the ordered action list"
          :options '(:root :profile :dry-run :continue :verbose :quiet :help)
-         :examples '("sudo ldl apply -C ~/my-home --profile work-laptop"
+         :examples '("ldl apply -C ~/my-home --profile work-laptop   # sudo (if needed) is per-action, not up front"
                       "ldl apply -C ~/my-home --profile work-laptop -n   # dry run"))
    (list :name "diff" :fn #'cmd-diff
          :summary "Show which actions would change something"

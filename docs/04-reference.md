@@ -119,7 +119,7 @@ system path that genuinely needs `root:root`, set it explicitly, as above.
 (file "~/.gitconfig" :from "gitconfig" :force t)
 ```
 
-**Templated** (see §21 for the renderer side):
+**Templated** (see §22 for the renderer side):
 
 ```lisp
 (file "~/.gitconfig" :from "gitconfig.tmpl" :template t)
@@ -157,7 +157,56 @@ Applies `ln -sf` semantics. Expands to `:symlink`.
 (symlink "~/.emacs.d" :to "~/.config/emacs")
 ```
 
-### 6 `package`
+### 6 `stow`
+
+`(stow "fish")` mirrors `files/fish/**` onto a target root (default `~`),
+GNU-Stow style — no dependency on the `stow` binary itself. It folds a
+whole directory into a single symlink when nothing exists at the target
+yet, and falls back to merging file-by-file when the target already
+exists for real, recursing as deep as it needs to:
+
+```lisp
+;; files/fish/.config/fish/config.fish -> ~/.config/fish/config.fish
+;; (folds the highest untaken directory -- if ~/.config doesn't exist
+;; either, ~/.config itself becomes the symlink, not just ~/.config/fish)
+(stow "fish")
+```
+
+**A different target root than `~`:**
+
+```lisp
+(stow "skel-fish" :to "/etc/skel")
+```
+
+**Source directory name different from the package's identity** (rarely
+needed — mostly for when two profiles want different variants of the
+same logical package):
+
+```lisp
+(stow "fish-work" :from "fish")
+```
+
+If two `stow` calls' packages both reach into the same subdirectory —
+say, `fish` and `starship` both touch `~/.config` — the first one to run
+folds `~/.config` into a single symlink; the second one *unfolds* it back
+into a real directory containing both packages' files individually,
+exactly like real GNU Stow does when two packages' trees overlap. You
+never have to think about ordering these by hand.
+
+**Marked for removal** (only acted on with `:prune-explicitly-disabled`):
+removes exactly the symlinks this package created, then prunes any
+directory left empty by that removal — but never anything that still
+has unrelated content in it, and never the target root itself:
+
+```lisp
+(stow "fish" :disabled t)
+```
+
+An existing *real* file or an unrelated symlink blocking a path this
+package needs is a conflict, reported clearly rather than silently
+overwritten — same as real stow's own safety behavior.
+
+### 7 `package`
 
 Declares a package should be installed (or, with `:disabled t`,
 uninstalled once pruned). Expands to `:package`, defaulting `:via` to
@@ -216,7 +265,7 @@ Remember: removal only actually *happens* if your home has the
 `:prune-explicitly-disabled` trait. Without it, this line is inert —
 useful if you want to document intent before you're ready to act on it.
 
-### 7 `secret`
+### 8 `secret`
 
 Writes a secret value to a target file. Expands to `:secret`. The value
 is fetched fresh, immediately before the file is written, and never
@@ -259,7 +308,7 @@ option to supply the value programmatically, skip, or abort.
 (secret "~/.ssh/id_ed25519" :from :pass :path "ssh/id_ed25519" :mode #o600)
 ```
 
-### 8 `env-var`
+### 9 `env-var`
 
 Ensures a single `export KEY="value"` line exists in a target file.
 Expands to `:env-var`.
@@ -268,7 +317,7 @@ Expands to `:env-var`.
 (env-var "EDITOR" :value "emacs" :file "~/.profile")
 ```
 
-### 9 `config-lines`
+### 10 `config-lines`
 
 Ensures specific lines are present, and specific lines are absent, in a
 target file — leaving everything else in that file untouched. Expands to
@@ -295,7 +344,7 @@ conflict with each other — they're additive.
 (config-lines "~/.bashrc" :remove ("alias rm='rm -i'"))
 ```
 
-### 10 `config-ini`
+### 11 `config-ini`
 
 Sets/unsets keys within a named `[section]` of an INI-style file. Expands
 to `:config-ini`.
@@ -313,7 +362,7 @@ to `:config-ini`.
 (config-ini "~/.gtkrc-2.0" :section "Settings" :set (("gtk-theme-name" . "Adwaita-dark")))
 ```
 
-### 11 `config-env`
+### 12 `config-env`
 
 Sets `KEY=value` pairs in a systemd `environment.d`-style file (no section
 headers). Expands to `:config-env`.
@@ -325,7 +374,7 @@ headers). Expands to `:config-env`.
         ("XDG_CURRENT_DESKTOP" . "sway")))
 ```
 
-### 12 `direct-action`
+### 13 `direct-action`
 
 The escape hatch. For anything a feature or convenience form doesn't
 cover. You always need to say why.
@@ -351,7 +400,7 @@ You can pass more than one action plist in one `direct-action`:
 `direct-action` entries always win identity conflicts outright — reaching
 for the escape hatch is a deliberate act on your part, so I trust it.
 
-### 13 Facts
+### 14 Facts
 
 **Reading one:**
 
@@ -385,7 +434,7 @@ guess which one to trust — I'll stop at startup and tell you both
 registrants, so you can remove one or make one depend on and defer to the
 other.
 
-### 14 Profiles
+### 15 Profiles
 
 **Defining one:**
 
@@ -418,7 +467,7 @@ whatever the fact probers found, with no overrides:
 ldl plan -C ~/my-home
 ```
 
-### 15 Catalogs
+### 16 Catalogs
 
 **Defining one:**
 
@@ -442,7 +491,7 @@ whole thing:**
 (register-catalog :packages :emacs '((:void . "emacs-nox")))
 ```
 
-### 16 Features
+### 17 Features
 
 ```lisp
 (define-feature :development
@@ -463,7 +512,7 @@ whole thing:**
 (define-feature :shell :requires nil)
 ```
 
-### 17 Providers
+### 18 Providers
 
 ```lisp
 (register-provider :emacs :for :editor
@@ -540,7 +589,7 @@ tests) can call it directly with a fixture fact plist and assert on the
 list it returns — no special test mode needed for providers, unlike
 executors.
 
-### 18 The built-in Action types, directly
+### 19 The built-in Action types, directly
 
 You'll mostly reach these through the convenience forms above, but every
 one of them is a plain plist you can also write yourself (inside a
@@ -562,13 +611,14 @@ provider, or via `direct-action`):
 (:action :config-env   :target "~/.config/environment.d/wayland.conf"
                         :set (("MOZ_ENABLE_WAYLAND" . "1")))
 (:action :secret       :target "~/.ssh/id_ed25519" :from :pass :path "ssh/id_ed25519" :mode #o600)
+(:action :stow         :target "fish" :to "~")
 ```
 
 Twelve more built-in types — `:user`, `:group`, `:authorized-key`,
 `:permissions`, `:mount`, `:sysctl`, `:kernel-module`, `:hostname`,
 `:locale`, `:firewall`, `:cron`, `:command` — cover system administration
 beyond a single home directory. They have their own convenience forms too
-(`user`, `group`, `authorized-key`, ...); see §20 for every one of
+(`user`, `group`, `authorized-key`, ...); see §21 for every one of
 them with example variations.
 
 **`:service`, specifically** — enables/starts a systemd unit only if it
@@ -597,7 +647,7 @@ extension):
       (:remove (list :status :removed :target (getf action :target))))))
 ```
 
-### 19 Generic action properties
+### 20 Generic action properties
 
 These work on *any* action, whether written via a convenience form or
 directly:
@@ -617,9 +667,9 @@ directly:
 (file "/etc/foo.conf" :from "foo.conf" :owner "root" :group "root")
 ```
 
-### 20 System administration actions
+### 21 System administration actions
 
-The built-in types in §18 cover dotfiles, packages, and services. A
+The built-in types in §19 cover dotfiles, packages, and services. A
 separate class of task shows up once you're managing more than your own
 home directory — system users, mounts, kernel parameters, the firewall —
 and deserves its own dedicated, idempotent executors rather than being
@@ -776,7 +826,7 @@ command is needed — I'll say so honestly (`:would-change` under `plan`,
 and I'll run it on every `apply`) rather than pretend I checked something
 I didn't. That's a signal to add a check, not a bug to work around.
 
-### 21 Templates
+### 22 Templates
 
 A template renderer is a plain Common Lisp function returning a string,
 living in `templates/*.lisp`, in the `:ldl-templates` package.
@@ -816,7 +866,7 @@ treat the file as static instead, skip, or abort.
 (file "~/.gitconfig" :from "gitconfig.tmpl" :renderer #'render-gitconfig)
 ```
 
-### 22 Pipeline hooks
+### 23 Pipeline hooks
 
 Two extension points, for cross-cutting behavior that doesn't belong in
 any single provider:
@@ -850,7 +900,7 @@ hook can signal a condition to halt the run, but it can't rewrite the
 action list or reorder execution — it observes and may object, nothing
 more.
 
-### 23 The CLI, command by command
+### 24 The CLI, command by command
 
 ```
 ldl plan       -C DIR [--profile NAME]
@@ -875,14 +925,15 @@ nothing:
 ldl plan -C ~/my-home --profile work-laptop
 ```
 
-**`apply`** — actually execute. Aborts before touching anything if the
-plan needs to install packages and you don't have the privileges to do
-so:
+**`apply`** — actually execute. Never run this one under `sudo` yourself:
+whichever individual actions in the plan genuinely need root (a package
+install, a root-owned system file) escalate on their own, one command at
+a time, and may prompt you for your `sudo` password right at that step:
 
 ```sh
-sudo ldl apply -C ~/my-home --profile work-laptop
+ldl apply -C ~/my-home --profile work-laptop
 
-# dry-run: see exactly what apply would have done, no privilege check
+# dry-run: see exactly what apply would have done, touches nothing
 ldl apply -C ~/my-home --profile work-laptop -n
 ```
 
@@ -1003,7 +1054,7 @@ ldl init -C ~/my-home
 -h, --help             Show help and exit
 ```
 
-### 24 Getting help
+### 25 Getting help
 
 I try never to leave you guessing about what a command accepts.
 
@@ -1043,7 +1094,7 @@ ldl apply --help
 #   -h, --help      Show this command's help and exit
 #
 # Examples:
-#   sudo ldl apply -C ~/my-home --profile work-laptop
+#   ldl apply -C ~/my-home --profile work-laptop   # sudo (if needed) is per-action
 #   ldl apply -C ~/my-home --profile work-laptop -n   # dry run
 ```
 
@@ -1060,7 +1111,7 @@ ldl apply --bogus-flag
 # ...
 ```
 
-### 25 When I stop and ask you something
+### 26 When I stop and ask you something
 
 I use the Common Lisp Condition System for every error, not exceptions in
 the exception-handling sense. That means every failure comes with
@@ -1069,24 +1120,30 @@ concrete restarts, not just a stack trace. Every command — not just
 SBCL backtrace. Here's the full list of conditions I can signal, and what
 your options are at each one:
 
-| Condition                   | When it happens                                                          | Your restarts                                       |
-|-----------------------------|--------------------------------------------------------------------------|-----------------------------------------------------|
-| `missing-provider`          | You `use-feature`d something with no matching (or ambiguous) provider    | specify a provider / skip the feature / abort       |
-| `action-conflict`           | Two same-priority actions claim the same identity with different content | keep definition A / keep definition B / abort       |
-| `insufficient-privileges`   | `apply`'s plan needs to install packages and you're not root             | abort (re-run with `sudo`)                          |
-| `permission-denied-mid-run` | Privileges were revoked partway through a run                            | retry with sudo / skip / abort                      |
-| `non-interactive-prompt`    | A `:prompt` secret was hit with no attached terminal                     | supply the value / skip / abort                     |
-| `fact-prober-conflict`      | Two different registrations claim the same fact key                      | abort (fix one of the registrations)                |
-| `missing-template-renderer` | `:template t` but no matching `RENDER-*` function exists                 | specify a renderer / treat as static / skip / abort |
-| `file-discovery-load-error` | One of your project's `.lisp` files failed to load                       | skip that file / abort                              |
-| `dependency-cycle`          | Your `:depends-on` edges form a loop                                     | abort (fix the cycle)                               |
-| `execution-failure`         | An executor's underlying operation failed (disk full, network down, ...) | retry / skip / abort                                |
+| Condition | When it happens | Your restarts |
+|---|---|---|
+| `missing-provider` | You `use-feature`d something with no matching (or ambiguous) provider | specify a provider / skip the feature / abort |
+| `action-conflict` | Two same-priority actions claim the same identity with different content | keep definition A / keep definition B / abort |
+| `non-interactive-prompt` | A `:prompt` secret was hit with no attached terminal | supply the value / skip / abort |
+| `fact-prober-conflict` | Two different registrations claim the same fact key | abort (fix one of the registrations) |
+| `missing-template-renderer` | `:template t` but no matching `RENDER-*` function exists | specify a renderer / treat as static / skip / abort |
+| `file-discovery-load-error` | One of your project's `.lisp` files failed to load | skip that file / abort |
+| `dependency-cycle` | Your `:depends-on` edges form a loop | abort (fix the cycle) |
+| `execution-failure` | An executor's underlying operation failed (disk full, network down, a privileged command's sudo prompt failed or was declined, ...) | retry / skip / abort |
+
+I never require you to run me as root. Every action that genuinely needs
+privilege escalates on its own, per action, via `sudo` — a package
+install, a write to a root-owned system file, creating a system user.
+Everything else never touches `sudo` at all. If a privileged step
+genuinely fails (wrong password, no TTY, cancelled), that's a real
+`execution-failure`, not something silently treated as "nothing needed to
+change."
 
 I never retry automatically, and I never roll back. Re-running me after
 you've fixed the underlying problem is always the right move — every
 built-in executor is idempotent, so re-running is cheap and safe.
 
-### 26 A note on stale builds
+### 27 A note on stale builds
 
 If you build me as a standalone executable with `save-lisp-and-die` and
 you ever update your `ldl` checkout in place (pull a fix, re-extract a

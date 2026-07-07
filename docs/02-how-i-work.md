@@ -184,6 +184,9 @@ output, that's normal, and it's not a bug.
 
 ---
 
+
+---
+
 Next: [How I Am Built](03-how-i-am-built.md) goes one level deeper, into
 the actual source layout and extensibility points behind this model. Or
 skip straight to the [Reference](04-reference.md) for every keyword and

@@ -16,6 +16,17 @@
                (uiop:run-program (list "stat" "-c" "%U:%G" (namestring path)) :output '(:string :stripped t))))))
     (when out (uiop:split-string out :separator '(#\:)))))
 
+(defun chmod-with-escalation (target mode recursive)
+  (let ((args (append (list "chmod") (when recursive (list "-R")) (list (format nil "~o" mode) (namestring target)))))
+    (unless (zerop (nth-value 2 (uiop:run-program args :ignore-error-status t)))
+      (run-privileged args))))
+
+(defun chown-with-escalation (target owner group recursive)
+  (let ((args (append (list "chown") (when recursive (list "-R"))
+                       (list (format nil "~a:~a" (or owner "") (or group "")) (namestring target)))))
+    (unless (zerop (nth-value 2 (uiop:run-program args :ignore-error-status t)))
+      (run-privileged args))))
+
 (defun execute-permissions (action &key mode)
   (let* ((target (expand-home (action-target action)))
          (want-mode (getf action :mode))
@@ -32,13 +43,8 @@
       (:check (report (cond ((not exists) :missing) (changed :would-change) (t :unchanged)) :target target))
       (:apply
        (when exists
-         (when mode-changed
-           (run-privileged (append (list "chmod") (when recursive (list "-R"))
-                                    (list (format nil "~o" want-mode) (namestring target)))))
-         (when (or owner-changed group-changed)
-           (run-privileged (append (list "chown") (when recursive (list "-R"))
-                                    (list (format nil "~a:~a" (or want-owner "") (or want-group ""))
-                                          (namestring target))))))
+         (when mode-changed (chmod-with-escalation target want-mode recursive))
+         (when (or owner-changed group-changed) (chown-with-escalation target want-owner want-group recursive)))
        (report (cond ((not exists) :missing) (changed :changed) (t :unchanged)) :target target))
       (:remove
        ;; Nothing meaningful to "remove" for a metadata-only action.

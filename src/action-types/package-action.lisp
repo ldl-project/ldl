@@ -113,8 +113,6 @@ than asking for it up front."
          (unless (flatpak-available-p)
            (error 'execution-failure :action-type :package :target name
                   :underlying "flatpak is not installed. Add (package \"flatpak\" :via :system) first."))
-         (when (and (eq (flatpak-scope action) :system) (not (privileged-p)))
-           (error 'permission-denied-mid-run :target name))
          (ensure-flatpak-remote action)
          (flatpak-run action (list "flatpak" "install" "-y" (flatpak-scope-flag action) (flatpak-remote action) name)))
        (report (if installed :unchanged :changed) :target name))
@@ -135,8 +133,6 @@ than asking for it up front."
             (:check (report (if installed :unchanged :would-change) :target name))
             (:apply
              (unless installed
-               (unless (privileged-p)
-                 (error 'permission-denied-mid-run :target name))
                (run-privileged (install-command via name)))
              (report (if installed :unchanged :changed) :target name))
             (:remove

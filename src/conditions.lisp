@@ -46,14 +46,22 @@
 (define-condition insufficient-privileges (ldl-error)
   ((count :initarg :count :reader insufficient-privileges-count))
   (:report (lambda (c stream)
-             (format stream "This plan requires installing packages, but ldl is not running with~%sufficient privileges to do so.~%~%  Affected actions: ~d :PACKAGE actions~%~%Run again with: sudo ldl apply"
-                     (insufficient-privileges-count c)))))
+             (format stream "This plan requires installing packages, but ldl is not running with~%sufficient privileges to do so.~%~%  Affected actions: ~d :PACKAGE actions"
+                     (insufficient-privileges-count c))))
+  (:documentation "No longer signaled by the core pipeline as of the
+per-action escalation model (see privilege.lisp's PREFLIGHT-NOTICE) --
+kept defined in case a project or plugin still wants this shape of
+condition for its own use."))
 
 (define-condition permission-denied-mid-run (ldl-error)
   ((target :initarg :target :reader permission-denied-target))
   (:report (lambda (c stream)
              (format stream "Permission denied while executing :PACKAGE ~s.~%  Action required: Install package."
-                     (permission-denied-target c)))))
+                     (permission-denied-target c))))
+  (:documentation "No longer signaled by the core pipeline as of the
+per-action escalation model -- a failed privileged command now signals
+EXECUTION-FAILURE from RUN-PRIVILEGED instead. Kept defined in case a
+project or plugin still wants this shape of condition for its own use."))
 
 (define-condition non-interactive-prompt (ldl-error)
   ((target :initarg :target :reader non-interactive-prompt-target))

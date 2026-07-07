@@ -28,11 +28,13 @@
       (:check (report (if changed :would-change :unchanged) :target to))
       (:apply
        (when changed
-         (write-file-string to intended)
+         (write-file-with-escalation to intended)
          (apply-file-ownership to action))
        (report (if changed :changed :unchanged) :target to))
       (:remove
-       (when (probe-file to) (delete-file to))
+       (when (probe-file to)
+         (handler-case (delete-file to)
+           (error () (run-privileged (list "rm" "-f" to)))))
        (report :removed :target to)))))
 
 (register-action-type :copy-file #'execute-copy-file

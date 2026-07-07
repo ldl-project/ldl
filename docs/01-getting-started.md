@@ -182,12 +182,14 @@ Nothing has touched your filesystem yet — `plan` always runs in check
 mode. When you're happy:
 
 ```sh
-sudo ldl apply -C ~/my-home
+ldl apply -C ~/my-home
 ```
 
-(`sudo` only actually matters if the plan contains `:package` actions —
-installing software needs root. If your plan is just dotfiles, plain
-`ldl apply` is enough.)
+Don't put `sudo` in front of that. Every action that genuinely needs
+root (installing that `bash` package, for instance) escalates on its own
+for just that one step and may prompt you for your password right then —
+running the whole thing under `sudo` instead would reset `~` to root's
+home directory and isn't needed for anything ldl does.
 
 ### Step 5 — add a second machine
 

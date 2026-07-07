@@ -53,16 +53,34 @@ doesn't exist, isn't a directory, or is empty."
                                   :output '(:string :stripped t) :ignore-error-status t)))
       (remove "" (uiop:split-string out :separator '(#\Newline)) :test #'string=))))
 
+(defun stow-mkdir (dir)
+  (handler-case (ensure-directories-exist (uiop:ensure-directory-pathname dir))
+    (error () (run-privileged (list "mkdir" "-p" dir)))))
+
+(defun stow-ln (source target)
+  (unless (zerop (nth-value 2 (uiop:run-program (list "ln" "-s" source target) :ignore-error-status t)))
+    (run-privileged (list "ln" "-s" source target))))
+
+(defun stow-rm (target)
+  (unless (zerop (nth-value 2 (uiop:run-program (list "rm" target) :ignore-error-status t)))
+    (run-privileged (list "rm" target))))
+
+(defun stow-rmdir-try (dir)
+  "T if DIR was removed. A non-zero exit here is the normal, expected
+signal that DIR isn't empty (real stow's own cascading-cleanup stop
+condition), not a failure to raise about -- so this tries a privileged
+retry quietly, never through RUN-PRIVILEGED, which would incorrectly
+treat \"not empty\" as an error."
+  (or (zerop (nth-value 2 (uiop:run-program (list "rmdir" dir) :ignore-error-status t)))
+      (zerop (nth-value 2 (uiop:run-program (list "sudo" "rmdir" dir) :ignore-error-status t)))))
+
 (defun stow-prune-empty-parents (path boundary)
   "After removing a symlink at PATH, walk upward removing now-empty
 directories, never going at or above BOUNDARY (the stow action's own
-target root). `rmdir` only succeeds on an empty directory, so this
-naturally stops at the first non-empty one -- mirroring real stow's own
-unstow cleanup."
+target root). Stops naturally at the first non-empty directory."
   (let ((dir (stow-parent-dir path))
         (boundary (string-right-trim "/" boundary)))
-    (loop while (and dir (> (length dir) (length boundary)) (path-is-dir-p dir)
-                      (zerop (nth-value 2 (uiop:run-program (list "rmdir" dir) :ignore-error-status t))))
+    (loop while (and dir (> (length dir) (length boundary)) (path-is-dir-p dir) (stow-rmdir-try dir))
           do (setf dir (stow-parent-dir dir)))))
 
 (defun stow-merge (source target mode)
@@ -81,8 +99,8 @@ hide from you."
        (:check t)
        (:apply
         (let ((parent (stow-parent-dir target)))
-          (when parent (ensure-directories-exist (uiop:ensure-directory-pathname parent))))
-        (uiop:run-program (list "ln" "-s" source target))
+          (when parent (stow-mkdir parent)))
+        (stow-ln source target)
         t)
        (:remove nil)))
 
@@ -93,7 +111,7 @@ hide from you."
          ;; Already points exactly at our source -- correctly stowed.
          ((equal existing-dest source)
           (case mode
-            (:remove (uiop:run-program (list "rm" target)) (stow-prune-empty-parents target target) t)
+            (:remove (stow-rm target) (stow-prune-empty-parents target target) t)
             (t nil)))
          ;; Points at some other directory -- almost certainly a fold from
          ;; a different stowed package sharing this path. Unfold it into a
@@ -102,8 +120,8 @@ hide from you."
           (case mode
             (:check t)
             (:apply
-             (uiop:run-program (list "rm" target))
-             (ensure-directories-exist (uiop:ensure-directory-pathname target))
+             (stow-rm target)
+             (stow-mkdir target)
              (dolist (name (dir-entries existing-dest))
                (stow-merge (stow-join existing-dest name) (stow-join target name) :apply))
              (dolist (name (dir-entries source))
@@ -150,4 +168,4 @@ remain valid regardless of the working directory at a later run."
                (report :removed :target package-name)))))
 
 (register-action-type :stow #'execute-stow
-  :description "Symlink a files/ package onto a target root, GNU-Stow style")
+  :description "Symlink a files/ package onto a target root, GNU-Stow style: fold whole directories when possible, merge file-by-file when the target already exists")

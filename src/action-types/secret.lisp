@@ -25,12 +25,14 @@
               (current (read-file-string target))
               (changed (not (equal value current))))
          (when changed
-           (write-file-string target value)
+           (write-file-with-escalation target value)
            (apply-file-ownership target action)
            (set-file-mode target (or (getf action :mode) #o600)))
          (report (if changed :changed :unchanged) :target target)))
       (:remove
-       (when (probe-file target) (delete-file target))
+       (when (probe-file target)
+         (handler-case (delete-file target)
+           (error () (run-privileged (list "rm" "-f" target)))))
        (report :removed :target target)))))
 
 (register-action-type :secret #'execute-secret

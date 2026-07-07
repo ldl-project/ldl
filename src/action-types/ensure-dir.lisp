@@ -17,11 +17,13 @@
     (case mode
       (:check (report (if (or (not exists) mode-needed) :would-change :unchanged) :target target))
       (:apply
-       (unless exists (ensure-directories-exist dir))
+       (unless exists (ensure-directories-with-escalation dir))
        (when (or (not exists) mode-needed) (apply-file-ownership dir action))
        (report (if (or (not exists) mode-needed) :changed :unchanged) :target target))
       (:remove
-       (when (uiop:directory-exists-p dir) (uiop:delete-directory-tree dir :validate t))
+       (when (uiop:directory-exists-p dir)
+         (handler-case (uiop:delete-directory-tree dir :validate t)
+           (error () (run-privileged (list "rm" "-rf" (namestring dir))))))
        (report :removed :target target)))))
 
 (register-action-type :ensure-dir #'execute-ensure-dir

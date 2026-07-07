@@ -283,7 +283,7 @@ Dotfile / package / service actions:
 
 | Type | Keys | Notes |
 |---|---|---|
-| `:package` | `:target`, `:via` (`:system` default, or `:pip`/`:npm`/`:flatpak`), and for `:flatpak` specifically: `:scope` (`:system` default or `:user`), `:remote` (default `"flathub"`), `:remote-url` (required for any non-flathub remote) | resolved through the `:packages` catalog only when `:via :system` -- `:pip`/`:npm`/`:flatpak` use the target string as-is. For `:flatpak`, give the target as a **string**, not a keyword (app IDs are case-sensitive; the reader would uppercase a keyword). `:scope :user` never requires or uses root privileges, even under `sudo ldl apply`. |
+| `:package` | `:target`, `:via` (`:system` default, or `:pip`/`:npm`/`:flatpak`), and for `:flatpak` specifically: `:scope` (`:system` default or `:user`), `:remote` (default `"flathub"`), `:remote-url` (required for any non-flathub remote) | resolved through the `:packages` catalog only when `:via :system` -- `:pip`/`:npm`/`:flatpak` use the target string as-is. For `:flatpak`, give the target as a **string**, not a keyword (app IDs are case-sensitive; the reader would uppercase a keyword). `ldl` is never run as root itself; `:via :system` and `:scope :system` Flatpak installs escalate via `sudo` for just that one command, while `:scope :user` never escalates at all. |
 | `:copy-file` | `:target`/`:to`, `:from`, `:template`, `:renderer`, `:secrets`, `:mode` | `:from` resolves under the project's `files/` directory |
 | `:ensure-dir` | `:target`, `:mode` | |
 | `:symlink` | `:target`, `:to` | `ln -sf` semantics |
@@ -311,6 +311,7 @@ System-administration actions:
 | `:firewall` | `:target` (port), `:protocol` (default `"tcp"`), `:allow` | auto-detects `firewalld` vs `ufw`; identity includes protocol, so tcp/udp on the same port are independent |
 | `:cron` | `:target` (job name), `:schedule`, `:command`, `:user` (default `"root"`) | writes `/etc/cron.d/<target>` |
 | `:command` | `:target` (a label), `:run`, `:creates`, `:unless`, `:only-if`, `:remove-run` | the escape hatch — give exactly one of `:creates`/`:unless`/`:only-if` so LDL can actually check whether it's needed; with none given it honestly reports "always needs to run" rather than guessing |
+| `:stow` | `:target` (package name under `files/`), `:to` (target root, default `~`), `:from` (source dir name if different from `:target`) | GNU-Stow-style symlink management, no dependency on the `stow` binary — folds a whole directory into one symlink when the target is empty, merges file-by-file (and unfolds a previous fold from a different package) when it isn't |
 
 If none of these covers what you need, `:command` with the right
 idempotency check (`:creates` a marker file/dir, `:unless`/`:only-if` a

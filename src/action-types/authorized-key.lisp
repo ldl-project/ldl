@@ -52,8 +52,8 @@ regardless of comment changes."
          (let* ((without (remove-if (lambda (l) (string= (akey-material l) want-material)) lines))
                 (new-lines (append without (list intended)))
                 (ssh-dir (format nil "~a/.ssh" (authorized-key-user-home user))))
-           (ensure-directories-exist (format nil "~a/" ssh-dir))
-           (write-file-string path (format nil "~{~a~%~}" new-lines))
+           (ensure-directories-with-escalation (format nil "~a/" ssh-dir))
+           (write-file-with-escalation path (format nil "~{~a~%~}" new-lines))
            (set-file-owner ssh-dir user user)
            (set-file-mode ssh-dir #o700)
            (set-file-owner path user user)
@@ -61,7 +61,7 @@ regardless of comment changes."
        (report (if up-to-date :unchanged :changed) :target path))
       (:remove
        (when existing
-         (write-file-string path
+         (write-file-with-escalation path
            (format nil "~{~a~%~}" (remove-if (lambda (l) (string= (akey-material l) want-material)) lines))))
        (report :removed :target path)))))
 

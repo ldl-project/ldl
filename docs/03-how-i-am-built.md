@@ -18,23 +18,23 @@ ldl/
 ├── ldl.asd                 # Explicit ASDF :components list
 ├── src/
 │   ├── package.lisp         # The three packages: :ldl.core, :ldl.log, :ldl-templates
-│   ├── conditions.lisp      # Every condition class + restart vocabulary
-│   ├── log.lisp             # Leveled logging
-│   ├── discovery.lisp       # Step 0: directory + ASDF-plugin discovery
-│   ├── facts.lisp           # Fact prober registration/probing
-│   ├── profiles.lisp        # Named fact-override sets
-│   ├── catalogs.lisp        # Canonical name -> distro-string tables
-│   ├── features.lisp        # Feature DAG + resolution
-│   ├── providers.lisp       # Provider registration/selection
-│   ├── actions.lisp         # Identity, dedup, ordering, dispatch
-│   ├── secrets.lisp         # :pass/:vault/:file/:prompt resolution
-│   ├── templates.lisp       # RENDER-* discovery
-│   ├── action-types/        # One file per built-in executor
-│   ├── pipeline.lisp        # The five-step Execution Model + hooks
-│   ├── privilege.lisp       # Privilege preflight for apply
-│   ├── dsl.lisp             # define-home + convenience macros
-│   └── cli.lisp             # Argument parsing + dispatch
-└── docs/                    # This manual, the spec, and guides
+│   ├── conditions.lisp        # Every condition class + restart vocabulary
+│   ├── log.lisp                 # Leveled logging
+│   ├── discovery.lisp             # Step 0: directory + ASDF-plugin discovery
+│   ├── facts.lisp                   # Fact prober registration/probing
+│   ├── profiles.lisp                  # Named fact-override sets
+│   ├── catalogs.lisp                    # Canonical name -> distro-string tables
+│   ├── features.lisp                      # Feature DAG + resolution
+│   ├── providers.lisp                       # Provider registration/selection
+│   ├── actions.lisp                           # Identity, dedup, ordering, dispatch
+│   ├── secrets.lisp                             # :pass/:vault/:file/:prompt resolution
+│   ├── templates.lisp                             # RENDER-* discovery
+│   ├── action-types/                                # One file per built-in executor
+│   ├── pipeline.lisp                                  # The five-step Execution Model + hooks
+│   ├── privilege.lisp                                   # Privilege preflight for apply
+│   ├── dsl.lisp                                           # define-home + convenience macros
+│   └── cli.lisp                                             # Argument parsing + dispatch
+└── docs/                                                      # This manual, the spec, and guides
 ```
 
 Every file starts with a header describing exactly what it does and how
@@ -68,16 +68,16 @@ I don't keep a database. Every piece of registered knowledge — every
 feature, provider, catalog, fact prober, pipeline hook, and action type —
 lives in a plain hash table, held in a special variable:
 
-| Variable                     | Populated by                          | Cleared on every `bootstrap`? |
-|------------------------------|---------------------------------------|-------------------------------|
-| `*feature-registry*`         | `define-feature`                      | Yes                           |
-| `*providers*`                | `register-provider`                   | Yes                           |
-| `*catalogs*`                 | `define-catalog` / `register-catalog` | Yes                           |
-| `*fact-probers*`             | `register-fact-prober`                | Yes                           |
-| `*pipeline-hooks*`           | `register-pipeline-hook`              | Yes                           |
-| `*profiles*`                 | `define-profile`                      | Yes                           |
-| `*action-types*`             | `register-action-type`                | **No**                        |
-| `*action-type-descriptions*` | `register-action-type :description`   | **No**                        |
+| Variable | Populated by | Cleared on every `bootstrap`? |
+|---|---|---|
+| `*feature-registry*` | `define-feature` | Yes |
+| `*providers*` | `register-provider` | Yes |
+| `*catalogs*` | `define-catalog` / `register-catalog` | Yes |
+| `*fact-probers*` | `register-fact-prober` | Yes |
+| `*pipeline-hooks*` | `register-pipeline-hook` | Yes |
+| `*profiles*` | `define-profile` | Yes |
+| `*action-types*` | `register-action-type` | **No** |
+| `*action-type-descriptions*` | `register-action-type :description` | **No** |
 
 The first six are populated by **Discovery** (a home project's own
 `.lisp` files, loaded fresh on every single command) and are cleared at
@@ -129,15 +129,15 @@ certainly want `docs/how-to-feature.md` instead of this section — it's a
 complete, example-driven guide. This is just the map of what's
 extensible and where it's registered:
 
-| To add                                                                | Call                     | Where it typically lives                                               |
-|-----------------------------------------------------------------------|--------------------------|------------------------------------------------------------------------|
-| A capability                                                          | `define-feature`         | a project's `features/*.lisp`                                          |
-| An implementation of a capability                                     | `register-provider`      | a project's `providers/*.lisp`                                         |
-| A distro package-name mapping                                         | `register-catalog`       | a project's `catalogs/*.lisp`                                          |
-| A new probed fact                                                     | `register-fact-prober`   | a project's `providers/*.lisp`                                         |
-| Cross-cutting behavior (audit logging, a confirmation prompt)         | `register-pipeline-hook` | a project's `hooks/*.lisp`                                             |
-| A template renderer                                                   | a `RENDER-*` function    | a project's `templates/*.lisp`                                         |
-| **A genuinely new action type** (rare — `:command` covers most cases) | `register-action-type`   | a plugin, or a change to `src/action-types/` if it belongs in the core |
+| To add | Call | Where it typically lives |
+|---|---|---|
+| A capability | `define-feature` | a project's `features/*.lisp` |
+| An implementation of a capability | `register-provider` | a project's `providers/*.lisp` |
+| A distro package-name mapping | `register-catalog` | a project's `catalogs/*.lisp` |
+| A new probed fact | `register-fact-prober` | a project's `providers/*.lisp` |
+| Cross-cutting behavior (audit logging, a confirmation prompt) | `register-pipeline-hook` | a project's `hooks/*.lisp` |
+| A template renderer | a `RENDER-*` function | a project's `templates/*.lisp` |
+| **A genuinely new action type** (rare — `:command` covers most cases) | `register-action-type` | a plugin, or a change to `src/action-types/` if it belongs in the core |
 
 That last one is the only extension point that touches me rather than a
 project. A new action type is a function of `(action &key mode)` handling

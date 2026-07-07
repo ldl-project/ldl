@@ -1,63 +1,27 @@
-# Lisp Declarative Linux (LDL)
+# LDL — Lisp Declarative Linux
 
-*A Declarative home environment manager for Linux, written in Common Lisp.*
+**Describe the Linux machine you want. Get real Lisp instead of YAML.**
 
----
+LDL is a declarative configuration tool for your Linux home directory (and,
+when you want it, the system underneath) — written entirely in Common
+Lisp, running on SBCL, with zero non-standard dependencies. You declare
+*what* you want; catalogs translate package names across distros,
+providers implement the *how*, and every action LDL takes is idempotent
+by construction. Run it again tomorrow, or on a different machine
+entirely, and it converges to the same result.
 
-## Hey, so — why does this exist?
+```lisp
+(define-home my-home
+  :traits (:prune-explicitly-disabled)
+  (use-feature :editor :via (if (fact :work-p) :emacs :vim))
+  (use-feature :shell  :via (if (eq (fact :display-server) :wayland) :zsh :bash))
+  (file "~/.gitconfig" :from "gitconfig")
+  (package "nano" :disabled t))
+```
 
-I kept doing the same thing on every new machine: install the same twenty packages, copy the same dotfiles from somewhere, remember the one `systemctl enable` command I always forget, and then two months later have no idea which of my four laptops has the "real" version of my config.
-
-I looked at the usual answers — a pile of shell scripts, Ansible, Nix — and none of them felt right for what I actually wanted, which was small and boring: *tell the computer what I want, in one place, and have it make that true.* Not a build system. Not a new package format. Not a new operating system philosophy. Just: "I want Emacs, I want my `.gitconfig`, I want this SSH key," and then it happens, on Fedora or Arch or Debian, without me thinking about `dnf` vs `pacman` ever again.
-
-That's LDL. You write down what you want. Someone (maybe you, maybe someone else who's already done the work) has written the Linux-specific knowledge of *how* to get it. You never have to know the difference between `emacs` on Fedora and `emacs-nox` on Ubuntu — the catalog knows that for you.
-
-I'm building it in Common Lisp because I wanted a real, restartable condition system when something goes wrong halfway through (not just a stack trace and a shrug), and because a small, composable Lisp DSL felt like the right size for "declare a home directory," not the size of a general-purpose infrastructure tool.
-
-## Okay, but why not just use Nix or Guix?
-
-Fair question, I asked myself the same thing before starting. Here's the honest answer:
-
-**Nix and Guix are magnificent, and they ask a lot of you.** They replace your package manager, your build model, and often your whole OS with something built around a store of immutable, content-addressed derivations. That buys you incredible reproducibility — and it comes with a real cost: a new language to learn, a new mental model for *everything* (including packages that "just exist" as `/nix/store/hash-name`), and, if you go all the way, a new operating system (NixOS, Guix System) instead of the Fedora or Arch box you already have set up the way you like it.
-
-LDL doesn't try to replace any of that. It's deliberately smaller:
-
-- **Your distro stays your distro.** LDL calls `dnf`, `pacman`, `apt` — whatever you already have — through a provider. It doesn't introduce a parallel package store.
-- **No new build model.** There's no derivation graph, no content-addressed store, no rebuild-from-source-by-default philosophy. An "action" in LDL is just "make this one small thing true" — copy a file, install a package, enable a service — and it's idempotent because the action itself is careful, not because there's a hash-addressed universe underneath it.
-- **No rollback, on purpose.** Nix's atomic generations are one of its best features, and also part of why it's a big piece of machinery. LDL doesn't attempt that. It applies forward, honestly, and if something's wrong you fix your declaration and run it again. Smaller promise, smaller system.
-- **You don't have to leave.** You can adopt LDL for your dotfiles and packages on the distro you already run, this afternoon, without repartitioning anything or learning a new OS.
-
-If you want bit-for-bit reproducible builds and full-system atomic rollbacks, Nix or Guix are the right tool, genuinely — go use them. If you want "describe my home directory once, reuse it across my machines, and stop thinking about which distro I'm on," that's the itch LDL is scratching.
-
-## How LDL stacks up
-
-Every tool on this list is good at what it does. Here's the honest
-comparison, not a sales pitch:
-
-|                                    | LDL                                             | Ansible               | Nix + home-manager                         | chezmoi / yadm / dotbot    | Puppet / Chef / Salt          |
-|------------------------------------|-------------------------------------------------|-----------------------|--------------------------------------------|----------------------------|-------------------------------|
-| **Config language**                | Common Lisp                                     | YAML + Jinja          | Nix (functional)                           | Go templates / YAML / bash | Ruby DSL / YAML+Jinja         |
-| **Scope**                          | Home + optional system bits                     | Whole fleets, remote  | Whole system, reproducible                 | Dotfiles only              | Whole fleets, agent/master    |
-| **Package installs**               | Catalog-mapped, your existing package manager   | Yes, many modules     | Yes, via the Nix store                     | No                         | Yes, extensive                |
-| **Real conditionals/control flow** | Yes — it's Lisp                                 | Limited (Jinja)       | Yes — it's Nix                             | Limited/none               | Limited (ERB/Jinja)           |
-| **Rollback**                       | No — converge forward, re-run to fix            | No                    | Yes, atomic                                | N/A                        | Not typically                 |
-| **Learning curve**                 | Common Lisp, if you don't know it               | Low                   | Steep — a new package manager and language | Very low                   | Moderate–steep                |
-| **Multi-machine orchestration**    | Not its job (single machine, multiple profiles) | Its whole job         | Possible (nixos-rebuild, flakes)           | No                         | Its whole job                 |
-| **Dependencies**                   | SBCL only                                       | Python + pip packages | The Nix daemon/store                       | Single binary              | Agent + often a master server |
-
-If you want reproducible, rollback-capable, whole-OS declarative
-management and are willing to adopt Nix as your package manager, **Nix +
-home-manager** is more mature at that specific job than LDL is. If you're
-managing a fleet of remote servers, **Ansible/Puppet/Chef/Salt** are built
-for exactly that and LDL isn't trying to compete there. If all you want
-is dotfile syncing, **chezmoi/yadm/dotbot** are simpler, single-purpose
-tools that do less and do it with less ceremony.
-
-LDL's niche is narrower and specific: one machine (or a few, via
-Profiles), your existing distro's package manager, real Lisp instead of
-templated YAML, and a feature/provider/catalog model that treats
-"install Docker" and "write my `.gitconfig`" as the same kind of thing —
-an idempotent action — rather than two different tools' worth of syntax.
+No templating language bolted onto YAML. No new package manager to
+adopt. Just facts, conditionals, and real Lisp — because it already is
+one.
 
 ---
 
@@ -80,6 +44,38 @@ You're probably not the target audience if you need to orchestrate a
 fleet of servers over SSH, or want a mature ecosystem of thousands of
 pre-built community modules today — see below.
 
+## How LDL stacks up
+
+Every tool on this list is good at what it does. Here's the honest
+comparison, not a sales pitch:
+
+| | LDL | Ansible | Nix + home-manager | chezmoi / yadm / dotbot | Puppet / Chef / Salt |
+|---|---|---|---|---|---|
+| **Config language** | Common Lisp | YAML + Jinja | Nix (functional) | Go templates / YAML / bash | Ruby DSL / YAML+Jinja |
+| **Scope** | Home + optional system bits | Whole fleets, remote | Whole system, reproducible | Dotfiles only | Whole fleets, agent/master |
+| **Package installs** | Catalog-mapped, your existing package manager | Yes, many modules | Yes, via the Nix store | No | Yes, extensive |
+| **Real conditionals/control flow** | Yes — it's Lisp | Limited (Jinja) | Yes — it's Nix | Limited/none | Limited (ERB/Jinja) |
+| **Rollback** | No — converge forward, re-run to fix | No | Yes, atomic | N/A | Not typically |
+| **Learning curve** | Common Lisp, if you don't know it | Low | Steep — a new package manager and language | Very low | Moderate–steep |
+| **Multi-machine orchestration** | Not its job (single machine, multiple profiles) | Its whole job | Possible (nixos-rebuild, flakes) | No | Its whole job |
+| **Dependencies** | SBCL only | Python + pip packages | The Nix daemon/store | Single binary | Agent + often a master server |
+
+If you want reproducible, rollback-capable, whole-OS declarative
+management and are willing to adopt Nix as your package manager, **Nix +
+home-manager** is more mature at that specific job than LDL is. If you're
+managing a fleet of remote servers, **Ansible/Puppet/Chef/Salt** are built
+for exactly that and LDL isn't trying to compete there. If all you want
+is dotfile syncing, **chezmoi/yadm/dotbot** are simpler, single-purpose
+tools that do less and do it with less ceremony.
+
+LDL's niche is narrower and specific: one machine (or a few, via
+Profiles), your existing distro's package manager, real Lisp instead of
+templated YAML, and a feature/provider/catalog model that treats
+"install Docker" and "write my `.gitconfig`" as the same kind of thing —
+an idempotent action — rather than two different tools' worth of syntax.
+
+---
+
 ## Installing
 
 You need [SBCL](http://www.sbcl.org/) on your `PATH`. That's the entire
@@ -97,10 +93,10 @@ step at runtime) and symlinks it into `~/.local/bin`:
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Most clean installations or new users do not have a local bin.
+# Most clean installations or new users do have a local bin.
 mkdir -p ~/.local/bin/
 
-# Build ldl and create a symlink to the executable in ~/.local/bin/
+# Build ldl and store it here.
 sbcl \
   --non-interactive \
   --eval '(require :asdf)' \
@@ -114,7 +110,7 @@ sbcl \
                (ldl.core:main (rest sb-ext:*posix-argv*))))' \
 && ln -sf "$PWD/ldl" ~/.local/bin/ldl
 
-# Show ldl's own help, to confirm it works.
+# Show ldl's own help, to confirm it worked.
 clear
 ldl
 ```
@@ -132,8 +128,16 @@ ldl validate -C ~/my-home   # syntax check only
 ldl check -C ~/my-home      # full resolution, no execution
 ldl plan -C ~/my-home       # show the resolved, ordered action list
 ldl diff -C ~/my-home       # show what would change
-sudo ldl apply -C ~/my-home # execute (packages need root)
+ldl apply -C ~/my-home      # execute -- never run this with sudo yourself
 ```
+
+Never run `ldl` itself as root. Every action that genuinely needs
+privilege (installing a package, writing a root-owned system file,
+creating a system user) escalates on its own, per action, via `sudo` —
+you may see a `sudo` password prompt partway through `apply`, but only
+for the specific steps that actually need it. Running `sudo ldl apply`
+instead breaks `~` expansion (sudo resets `$HOME` to root's) and is never
+necessary.
 
 Every built-in action supports `:apply`, `:check`, and `:remove` modes,
 and is idempotent — running `apply` twice is always safe, and `plan`
